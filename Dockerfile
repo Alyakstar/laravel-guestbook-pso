@@ -102,4 +102,4 @@ EXPOSE 9000
 # CMD ["php-fpm"]
 # The default command that will be executed when a container starts from this image.
 # This starts the PHP-FPM service, which will be ready to receive requests from Nginx.
-CMD ["php-fpm"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=${PORT}"]

@@ -1,0 +1,86 @@
+# .github/workflows/ci.yml
+name: Laravel CI Pipeline
+
+# Triggers the workflow on pushes to the 'main' branch and on pull requests
+on:
+  push:
+    branches:
+      - main # Adjust to 'master' if your main branch is named 'master'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # 1. Build and Test Job
+  build-and-test:
+    runs-on: ubuntu-latest # Runs on a fresh Ubuntu virtual machine provided by GitHub
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Action to pull your repository code
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2 # Action to install PHP and common extensions
+        with:
+          php-version: '8.2' # Match your application's PHP version
+          extensions: pdo_mysql, mbstring, dom, gd # Essential Laravel extensions
+          coverage: none # Not collecting code coverage for this setup
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Create .env file for testing
+        # Directly create a .env file with necessary variables for the CI testing environment.
+        # This avoids relying on a .env.example file, which might not be present or updated.
+        run: |
+          echo "APP_NAME=Laravel" > .env
+          echo "APP_ENV=testing" >> .env
+          echo "APP_DEBUG=true" >> .env
+          echo "APP_URL=http://localhost" >> .env
+          echo "LOG_CHANNEL=stack" >> .env
+          echo "APP_KEY=" >> .env
+          echo "DB_CONNECTION=sqlite" >> .env # Using SQLite for faster CI tests
+          echo "DB_DATABASE=database/database.sqlite" >> .env
+
+      - name: Generate application key (for testing environment)
+        run: php artisan key:generate
+
+      - name: Create database (for SQLite in CI)
+        # Ensures the directory exists and creates an empty SQLite database file.
+        run: mkdir -p database && touch database/database.sqlite
+
+      - name: Run database migrations
+        run: php artisan migrate --force
+
+      - name: Run PHPUnit tests
+        # Executes your Laravel PHPUnit tests. If any tests fail, this job will fail.
+        run: php artisan test
+
+  # 2. Build Docker Image Job
+  build-docker-image:
+    needs: build-and-test # This job will only run if the 'build-and-test' job successfully completed
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3 # Required for modern Docker builds and caching
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3 # Authenticates with your Docker Hub account
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }} # Uses the GitHub Secret for your Docker Hub username
+          password: ${{ secrets.DOCKER_TOKEN }}   # Uses the GitHub Secret for your Docker Hub PAT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5 # Builds the image using your Dockerfile and pushes it to Docker Hub
+        with:
+          context: . # The build context is the root of your repository (where your Dockerfile is)
+          push: true # Instructs the action to push the built image to Docker Hub
+          tags: |
+            parisyashp31/guestbook-laravel:latest
+            parisyashp31/guestbook-laravel:${{ github.sha }}
+          cache-from: type=gha,scope=build-image # Leverages GitHub Actions' cache for faster subsequent builds
+          cache-to: type=gha,scope=build-image,mode=max # Stores build cache for future runs

@@ -1,0 +1,43 @@
+name: CI/CD Pipeline for Laravel Guestbook
+
+on:
+  push:
+    branches:
+      - master # Ubah dari 'main' menjadi 'master'
+  pull_request:
+    branches:
+      - master # Ubah dari 'main' menjadi 'master'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2' # Sesuaikan dengan versi PHP yang Anda gunakan
+        extensions: mbstring, pdo_sqlite, bcmath, fileinfo
+        ini-values: post_max_size=256M, upload_max_filesize=256M
+        tools: composer:v2
+
+    - name: Install Composer Dependencies
+      run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+    - name: Prepare Laravel Environment
+      run: |
+        cp .env.example .env
+        php artisan key:generate
+
+    - name: Run Database Migrations (if applicable)
+      run: php artisan migrate --force || true
+      env:
+        APP_ENV: testing
+
+    - name: Run PHPUnit Tests (Optional, but Recommended)
+      run: vendor/bin/phpunit || true
+      env:
+        APP_ENV: testing

@@ -29,7 +29,7 @@ jobs:
 
     - name: Prepare Laravel Environment
       run: |
-        cp .env.example .env
+        touch .env # Membuat file .env kosong jika belum ada
         php artisan key:generate
 
     - name: Run Database Migrations (if applicable)

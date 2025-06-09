@@ -23,12 +23,11 @@ jobs:
         uses: shivammathur/setup-php@v2 # Action untuk menginstal PHP dan ekstensi umum
         with:
           php-version: '8.2' # Pastikan versi PHP ini sesuai dengan yang digunakan aplikasi Laravel Anda
-          # -- PERBAIKAN: Menambahkan ekstensi penting untuk Laravel (bcmath, exif, zip)
-          extensions: pdo_mysql, mbstring, dom, gd, bcmath, exif, zip
+          extensions: pdo_mysql, mbstring, dom, gd, bcmath, exif, zip # Ekstensi esensial untuk Laravel, ditambahkan bcmath, exif, dan zip
           coverage: none # Tidak mengumpulkan code coverage untuk setup ini
 
-      # -- PENAMBAHAN KRUSIAL: Cache Composer dependencies untuk mempercepat build
       - name: Cache Composer dependencies
+        # Menggunakan cache Composer untuk mempercepat instalasi dependensi pada eksekusi selanjutnya
         uses: actions/cache@v3
         with:
           path: vendor
@@ -36,11 +35,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-php-
 
-      - name: Instal dependensi Composer
-        # Menjalankan instalasi dependensi yang ditentukan di composer.json
+      - name: Instal Composer dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Buat file .env untuk pengujian
+      - name: Create .env file for testing
         # Membuat file .env secara langsung dengan variabel yang diperlukan untuk lingkungan pengujian CI.
         # Ini penting agar Laravel dapat berjalan di lingkungan CI.
         run: |
@@ -53,15 +51,15 @@ jobs:
           echo "DB_CONNECTION=sqlite" >> .env # Menggunakan SQLite untuk pengujian CI yang lebih cepat dan efisien
           echo "DB_DATABASE=database/database.sqlite" >> .env
 
-      - name: Generate application key (untuk lingkungan pengujian)
+      - name: Generate application key (for testing environment)
         # Menghasilkan APP_KEY baru yang akan disimpan di file .env yang baru dibuat
         run: php artisan key:generate
 
-      - name: Buat file database SQLite (untuk CI)
+      - name: Create database (for SQLite in CI)
         # Memastikan direktori 'database' ada dan membuat file database.sqlite kosong yang akan digunakan oleh SQLite
         run: mkdir -p database && touch database/database.sqlite
 
-      - name: Jalankan migrasi database
+      - name: Run database migrations
         # Menjalankan semua migrasi database yang ada untuk menyiapkan skema database pengujian.
         # --force diperlukan di lingkungan non-interaktif seperti CI.
         run: php artisan migrate --force
@@ -70,14 +68,13 @@ jobs:
       #   # Hapus komentar baris ini jika Anda memiliki seeder yang perlu dijalankan untuk mengisi data dummy untuk pengujian.
       #   # run: php artisan db:seed
 
-      # -- PENAMBAHAN: Periksa Kualitas Kode dengan Laravel Pint
       - name: Periksa Kualitas Kode dengan Laravel Pint
         # Menjalankan Laravel Pint untuk memeriksa dan memastikan standar gaya kode.
         # Gunakan 'php vendor/bin/pint --test' untuk hanya memeriksa (gagal jika ada perbedaan)
         # Gunakan 'php vendor/bin/pint' untuk otomatis memperbaiki (dan kemudian commit perbaikan)
         run: php vendor/bin/pint --test # Memeriksa gaya kode, gagal jika ada masalah
 
-      - name: Jalankan tes PHPUnit
+      - name: Run PHPUnit tests
         # Mengeksekusi semua tes PHPUnit Laravel Anda. Jika ada tes yang gagal, job ini akan gagal,
         # yang menandakan adanya regresi atau bug.
         run: php artisan test
@@ -88,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest # Menjalankan job di mesin virtual Ubuntu terbaru
 
     steps:
-      - name: Checkout kode repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
@@ -100,7 +97,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }} # Menggunakan GitHub Secret untuk username Docker Hub Anda
           password: ${{ secrets.DOCKER_TOKEN }}    # Menggunakan GitHub Secret untuk Personal Access Token (PAT) Docker Hub Anda
 
-      - name: Build dan push Docker image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5 # Membangun image menggunakan Dockerfile Anda dan mendorongnya ke Docker Hub
         with:
           context: . # Konteks build adalah root repository Anda (tempat Dockerfile berada)
